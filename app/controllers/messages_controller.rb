@@ -1,15 +1,20 @@
 class MessagesController < ApplicationController
   include ActionController::Live
+  @@lock = Mutex.new
 
   def index
-    @messages = Message.all
+    @@lock.synchronize do
+      @messages = Message.all
+    end
   end
 
   def create
-    attributes = params.require(:message).permit(:content, :name)
-    @message = Message.create(attributes)
-    $redis.publish('messages.create', @message.to_json)
-    head :created, location: @message
+    @@lock.synchronize do
+      attributes = params.require(:message).permit(:content, :name)
+      @message = Message.create(attributes)
+      $redis.publish('messages.create', @message.to_json)
+      head :created, location: @message
+    end
   end
   
   def events
